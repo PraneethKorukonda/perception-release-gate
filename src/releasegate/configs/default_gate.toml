@@ -7,7 +7,8 @@
 #
 # `where` is a pandas query over the box table (frame_recall) or the object
 # table (the time-based metrics). Useful columns: cls, timeofday, weather,
-# scene, size, occluded, night, rain, highway, small, far, crowded, in_path,
+# scene, size, occluded, night, rain, highway, small, far, near, crowded, in_path,
+# location; on the object table also near_at_appearance and far_at_appearance;
 # and set_<name> for any scenario set passed with --set.
 
 [settings]

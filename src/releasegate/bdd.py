@@ -165,6 +165,7 @@ def load_tracking_dir(label_dir: str | Path, limit: int | None = None, seed: int
         gt_rows += g
 
     images = pd.DataFrame(image_rows, columns=IMAGE_COLUMNS)
+    images["location"] = "undefined"  # BDD has GPS instead; see gps.py
     gt = pd.DataFrame(
         gt_rows,
         columns=[

@@ -1,14 +1,16 @@
 """Command line entry point: `releasegate <command>`.
 
-Typical run on real data:
+Typical run on the Waymo Open Dataset (see scripts/waymo_download.sh for getting the files):
 
-    releasegate ingest  --labels bdd100k/labels/box_track_20/val --info bdd100k/info/100k/val --out data/val
-    releasegate infer   --data data/val --images bdd100k/images/track/val --weights yolo11s.pt --out runs/yolo11s
-    releasegate infer   --data data/val --images bdd100k/images/track/val --weights yolo11m.pt --out runs/yolo11m
-    releasegate match   --data data/val --run runs/yolo11s
-    releasegate match   --data data/val --run runs/yolo11m
-    releasegate gate    --data data/val --current runs/yolo11s --candidate runs/yolo11m --out reports/s_vs_m
-    releasegate sql     --report reports/s_vs_m late_pedestrians
+    releasegate waymo-ingest --root waymo/validation --out data/waymo --images data/waymo/images
+    releasegate infer  --data data/waymo --images data/waymo/images --classes waymo --weights yolo11s.pt --out runs/yolo11s
+    releasegate infer  --data data/waymo --images data/waymo/images --classes waymo --weights yolo11m.pt --out runs/yolo11m
+    releasegate match  --data data/waymo --run runs/yolo11s
+    releasegate match  --data data/waymo --run runs/yolo11m
+    releasegate gate   --data data/waymo --config waymo --current runs/yolo11s --candidate runs/yolo11m --out reports/waymo
+    releasegate sql    --report reports/waymo late_pedestrians
+
+BDD100K tracking data works the same way with `releasegate ingest` instead.
 
 No data yet? `releasegate demo` runs all of it on simulated clips.
 """
@@ -73,9 +75,38 @@ def cmd_infer(a):
         conf=a.conf,
         device=a.device,
         batch=a.batch,
+        classes=a.classes,
     )
     preds.to_parquet(out / "preds.parquet", index=False)
     print(f"{len(preds):,} boxes -> {out / 'preds.parquet'}")
+
+
+def cmd_waymo_ingest(a):
+    from releasegate import bdd, waymo
+
+    segs = waymo.available_segments(a.root)
+    if a.limit:
+        segs = segs[: a.limit]
+    images, gt, videos = waymo.load_waymo(a.root, segs)
+    bdd.save_dataset(a.out, images, gt, videos)
+    print(f"{len(videos)} segments, {len(images):,} frames, {len(gt):,} boxes -> {a.out}")
+    print(videos.groupby(["timeofday", "location"]).size().to_string())
+    if a.images:
+        n = waymo.extract_images(a.root, images, a.images)
+        print(f"wrote {n:,} front-camera images -> {a.images}")
+
+
+def cmd_waymo_pick(a):
+    from releasegate import waymo
+
+    summary = waymo.summarize_stats(a.stats)
+    picked = waymo.pick_segments(summary, a.n, seed=a.seed)
+    out = Path(a.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    picked.to_csv(out, index=False)
+    print(f"{len(summary)} segments found, picked {len(picked)}:")
+    print(picked.groupby(["timeofday", "weather", "location"]).size().to_string())
+    print(f"-> {out}")
 
 
 def cmd_match(a):
@@ -326,7 +357,31 @@ def main(argv=None):
     s.add_argument("--device")
     s.add_argument("--batch", type=int, default=16)
     s.add_argument("--limit", type=int, help="only the first N clips (for a quick test)")
+    s.add_argument(
+        "--classes",
+        choices=["bdd", "waymo"],
+        default="bdd",
+        help="how COCO classes map to the dataset's labels",
+    )
     s.set_defaults(fn=cmd_infer)
+
+    s = sub.add_parser("waymo-ingest", help="Waymo Open Dataset v2 parquet -> tables")
+    s.add_argument(
+        "--root",
+        required=True,
+        help="folder holding camera_box/, camera_calibration/, stats/, vehicle_pose/",
+    )
+    s.add_argument("--out", required=True)
+    s.add_argument("--images", help="also write front-camera JPEGs here (needs camera_image/)")
+    s.add_argument("--limit", type=int, help="only the first N segments")
+    s.set_defaults(fn=cmd_waymo_ingest)
+
+    s = sub.add_parser("waymo-pick", help="choose which Waymo segments to download")
+    s.add_argument("--stats", required=True, help="folder of downloaded stats/*.parquet")
+    s.add_argument("--n", type=int, default=40)
+    s.add_argument("--out", default="data/waymo_segments.csv")
+    s.add_argument("--seed", type=int, default=0)
+    s.set_defaults(fn=cmd_waymo_pick)
 
     s = sub.add_parser("match", help="match predictions to labels")
     s.add_argument("--data", required=True)
@@ -339,7 +394,7 @@ def main(argv=None):
     s.add_argument("--current", required=True)
     s.add_argument("--candidate", required=True)
     s.add_argument("--out", required=True)
-    s.add_argument("--config")
+    s.add_argument("--config", help="a TOML file, or a packaged name: default, waymo")
     s.add_argument("--set", action="append", help="scenario set JSON (glob ok), repeatable")
     s.add_argument("--n-boot", type=int)
     s.set_defaults(fn=cmd_gate)

@@ -157,8 +157,9 @@ Intervals are 90% and resample whole clips.
 ## What this doesn't cover
 
 - 2D camera boxes only. No lidar/radar, no 3D position, no tracker.
-- Stopping-distance checks use a flat-road, straight-path approximation and an
-  assumed focal length. They rank models; they are not a safety case.
+- Stopping-distance checks use a flat-road, straight-path approximation (and an
+  assumed focal length where the dataset has no calibration). They rank models;
+  they are not a safety case.
 - Scenario margins were set by me, not derived from a system-level budget.
 """
     path = out / "summary.md"

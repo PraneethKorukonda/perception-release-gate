@@ -17,10 +17,10 @@ ships.
 ## What it does
 
 ```
-BDD100K clips ─► ingest ─► run current + candidate ─► match to labels
-   (5 fps video,                (YOLO, any model              │
-    GPS, scenes)                 that writes the same          ▼
-                                 columns)            per-box and per-object tables
+Waymo segments ─► ingest ─► run current + candidate ─► match to labels
+ (10 Hz front camera,          (YOLO, any model              │
+  tracks, ego pose,             that writes the same          ▼
+  day/night, weather)           columns)            per-box and per-object tables
                                                                │
                          scenario sets (rules, CLIP) ──────────┤
                                                                ▼
@@ -38,15 +38,15 @@ The metrics go past "how many boxes did it find":
 |---|---|---|
 | Frame recall by scenario | Share of labelled boxes found, split by night, rain, distance, occlusion... | Averages hide the scenarios that matter |
 | Detected within 1 s | Share of pedestrians found within 1 s of first becoming visible | A late detection is a shorter stopping distance |
-| Late in-path detection | In-path pedestrians first seen closer than the car needs to brake comfortably at its GPS speed | Turns detection timing into a driving outcome |
+| Late in-path detection | In-path pedestrians first seen closer than the car needs to brake comfortably at its actual speed | Turns detection timing into a driving outcome |
 | Dropouts per 100 frames | Times an object is lost and re-found | A downstream tracker sees each one as a coast or a new track |
 | False positives per frame | At the deployment threshold | Phantom braking |
 | mAP@0.5 | COCO-style, matches pycocotools exactly | The number everyone asks for first |
 
 ## Example
 
-`releasegate demo` runs the whole pipeline on 200 simulated clips (the same
-size as the BDD100K tracking val split) with three models:
+`releasegate demo` runs the whole pipeline on 200 simulated clips (about the
+size of the Waymo validation split) with three models:
 
 - **current**: the deployed model
 - **candidate**: better on average, but I made it worse on far-away pedestrians at night
@@ -78,7 +78,7 @@ weakest slices. Here the top three slices were all small pedestrians at night
 ![time to first detection](docs/time_to_detection.png)
 
 These are simulated numbers. They show the tool working end to end and they
-are not a claim about any real detector. See [Running on BDD100K](#running-on-bdd100k)
+are not a claim about any real detector. See [Running on the Waymo Open Dataset](#running-on-the-waymo-open-dataset)
 for real data.
 
 ## How the gate decides
@@ -138,9 +138,9 @@ say SHIP. Two causes:
    check is about as wide as its 2-3 point margin, so the gate can't certify
    it either way. That is what NEEDS MORE DATA is supposed to say.
 
-So the fix is the eval set, not the rule. COCO-pretrained detectors never saw
-BDD100K, so its 1,400 training clips are fair evaluation data too. At 600
-clips:
+So the fix is the eval set, not the rule. A COCO-pretrained detector never saw
+the dataset's training split, so those segments are fair evaluation data too
+(Waymo has ~800 training segments on top of ~200 validation). At 600 clips:
 
 | Scenario | Correct call | SHIP | HOLD | NEEDS MORE DATA |
 |---|---|---:|---:|---:|
@@ -148,7 +148,7 @@ clips:
 | Subtle night regression | HOLD | 0% | **100%** | 0% |
 
 False HOLDs drop to zero and the subtle regression is always caught. The
-remaining NEEDS MORE DATA would fall further with the full 1,600 clips or
+remaining NEEDS MORE DATA would fall further with every available segment or
 slightly wider margins on the rarest slices. Choosing between those is a
 judgment call that belongs to the team, and the study gives them the numbers
 to make it.
@@ -161,38 +161,68 @@ models, a 90% interval should exclude zero 10% of the time:
 | Whole clips | 9% | 1.7 pts |
 | Individual boxes | 44% | 0.75 pts |
 
-## Running on BDD100K
+## Running on the Waymo Open Dataset
 
-You need to download BDD100K yourself (free account at
-[bdd-data.berkeley.edu](https://bdd-data.berkeley.edu)): the MOT 2020 images
-and labels, and optionally the info files for GPS. Then:
+The real-data path uses the [Waymo Open Dataset](https://waymo.com/open/)
+perception v2.0.1, front camera only. It fits this problem well: 10 Hz video
+with tracked 2D boxes, time of day and weather for every frame, real camera
+intrinsics, and the vehicle's pose (so ego speed is measured, not assumed).
+
+You need to accept the license on the Waymo site with a Google account. It's
+non-commercial and doesn't allow re-sharing the data, so nothing from it is
+committed here except aggregate numbers. Then:
 
 ```bash
 pip install -e ".[infer,dashboard]"
-BDD=~/data/bdd100k ./scripts/run_bdd_val.sh       # yolo11s vs yolo11m by default
-streamlit run app/dashboard.py -- --report reports/val --images ~/data/bdd100k/images/track/val
+brew install --cask google-cloud-sdk && gcloud auth login    # same Google account
+
+./scripts/waymo_download.sh    # picks 40 validation segments, ~14 GB
+./scripts/run_waymo.sh         # yolo11s vs yolo11m by default
+streamlit run app/dashboard.py -- --report reports/waymo --images data/waymo/images
 ```
 
-On an M1/M2 Mac with `--device mps`, inference at 1280 px takes roughly 30-45
-minutes per model for the 200 val clips. Run with `--limit 40` first. Two
-settings matter: keep `--conf` low (0.01) because the gate applies its own
-threshold and AP needs the low-score tail, and use the same `--imgsz` for
-both models or you're comparing input sizes, not models.
+`waymo_download.sh` first fetches only the stats files for every validation
+segment (about 25 KB each), then `releasegate waymo-pick` chooses which
+segments to get: every night, dawn/dusk and rain segment with pedestrians,
+plus a random fill of daytime ones. Night and rain are the checks that come
+back INCONCLUSIVE when the set is small, so it spends the download where the
+gate needs it. That doesn't bias any check, because each check is computed
+inside its own condition.
+
+On an M1/M2 Mac with `--device mps`, inference at 1280 px takes roughly 5-10
+minutes per model for 40 segments (~8,000 frames). Two settings matter: keep
+`--conf` low (0.01) because the gate applies its own threshold and AP needs
+the low-score tail, and use the same `--imgsz` for both models or you're
+comparing input sizes, not models.
 
 Details that took the most thought:
 
-- **Class mapping** ([categories.py](src/releasegate/categories.py)). BDD
-  labels a cyclist as `rider` + `bicycle`; a COCO detector calls the person a
-  `person`. Mapped naively, every correctly detected rider is a pedestrian
-  false positive. Riders and BDD's `crowd` boxes are treated as ignore regions,
-  the way pycocotools treats crowds.
-- **Left-censored objects.** A pedestrian already visible in the first frame of
-  a clip has no known "appeared at" time, so they're left out of every
+- **Class mapping** ([categories.py](src/releasegate/categories.py)). Waymo
+  has one `vehicle` class and labels a person on a bike as one `cyclist` box;
+  a COCO detector outputs car/truck/bus and calls the rider a `person`. So the
+  detector's vehicle classes merge into `vehicle`, its bicycle boxes are
+  dropped, and cyclist boxes are ignore regions for pedestrians (the way
+  pycocotools treats crowds). Without that, every correctly detected cyclist
+  is a pedestrian false positive.
+- **Near field.** Waymo labels objects very far out: in the segments I
+  checked, half the pedestrians are more than 80 m away and the median box is
+  ~27 px tall. Overall recall mostly measures those tiny boxes, so the
+  blocking checks in [`waymo_gate.toml`](src/releasegate/configs/waymo_gate.toml)
+  are on pedestrians within 40 m, and "detected within 1 s" only counts
+  pedestrians first seen within 40 m (stepping out, coming round a corner).
+- **Left-censored objects.** A pedestrian already visible in the first frame
+  of a segment has no known "appeared at" time, so they're left out of every
   time-to-detection metric.
-- **Missing time of day.** If the label files don't carry it, it's estimated
-  from frame brightness ([lighting.py](src/releasegate/lighting.py)). Check
-  the rule against labelled clips with `lighting.check_rule` before trusting a
-  night result built on it.
+- **No occlusion labels.** Waymo's camera boxes all carry the same difficulty
+  level, so there's nothing to split on. The occlusion checks only apply to BDD.
+
+### BDD100K
+
+The repo also reads the BDD100K MOT 2020 tracking set (`releasegate ingest`,
+`scripts/run_bdd_val.sh`). When I went to download it, the tracking labels were
+no longer on the BDD download server (the images were), which is why Waymo is
+the main path. If you have the `box_track_20` labels, everything above works the
+same with `--classes bdd` and the default gate config.
 
 ## Scenario sets and CLIP mining
 
@@ -200,7 +230,7 @@ A scenario set is a versioned list of frames saved as JSON with a fingerprint.
 Rule-based sets come from labels:
 
 ```bash
-releasegate scenario --data data/val --name night_pedestrians \
+releasegate scenario --data data/waymo --name night_pedestrians \
     --where "cls == 'pedestrian' and night" --out datasets/night_pedestrians.json
 ```
 
@@ -208,10 +238,10 @@ Mined sets come from a CLIP text search, for things the labels don't record:
 
 ```bash
 pip install -e ".[mining]"
-releasegate mine embed  --data data/val --images $BDD/images/track/val --emb data/val/clip.npz
-releasegate mine check  --data data/val --emb data/val/clip.npz \
+releasegate mine embed  --data data/waymo --images data/waymo/images --emb data/waymo/clip.npz
+releasegate mine check  --data data/waymo --emb data/waymo/clip.npz \
     --query "a city street at night" --label "timeofday == 'night'"   # does it find what we can verify?
-releasegate mine search --data data/val --emb data/val/clip.npz \
+releasegate mine search --data data/waymo --emb data/waymo/clip.npz \
     --query "a pedestrian stepping out between parked cars" --name dart_outs --out datasets/dart_outs.json
 ```
 
@@ -228,13 +258,14 @@ The gate writes parquet tables that DuckDB queries in place:
 
 ```bash
 releasegate sql                                    # list saved queries
-releasegate sql --report reports/val late_pedestrians
-releasegate sql --report reports/val geo_miss_rates
+releasegate sql --report reports/waymo late_pedestrians
+releasegate sql --report reports/waymo recall_by_location
 ```
 
 Queries live in [`src/releasegate/sql`](src/releasegate/sql): recall by
 scenario, biggest paired regressions, late in-path pedestrians, clips to
-review, dropout hotspots, and miss rates on a ~1 km grid.
+review, dropout hotspots, recall by city, and (for data with GPS) miss rates
+on a ~1 km grid.
 
 [`spark_job.py`](src/releasegate/spark_job.py) is the same slice aggregation
 as a PySpark job. On one laptop DuckDB is faster; the Spark version is the
@@ -246,7 +277,8 @@ needs. A test checks it matches DuckDB exactly.
 
 ```
 src/releasegate/
-  bdd.py, gps.py, lighting.py   ingest BDD100K tracking labels, GPS/speed, time of day
+  waymo.py                      Waymo Open Dataset v2 ingest, image extraction, segment picker
+  bdd.py, gps.py, lighting.py   BDD100K tracking ingest, GPS/speed, time of day
   infer.py                      ultralytics YOLO -> model-independent prediction table
   match.py, metrics.py          COCO-rule matching, P/R/F1, AP (verified against pycocotools)
   tracks.py, safety.py          time-to-detection, dropouts, distance, stopping margin
@@ -256,7 +288,7 @@ src/releasegate/
   db.py, sql/, spark_job.py     DuckDB views and queries, PySpark version
   sim.py, studies.py            simulated clips with known truth, gate error rates
 app/dashboard.py                Streamlit: decision, scenarios, time, map, clip review
-tests/                          46 tests, including pycocotools parity and Spark vs DuckDB
+tests/                          53 tests, including pycocotools parity and Spark vs DuckDB
 ```
 
 ```bash
@@ -270,10 +302,10 @@ make demo && make dashboard
   in 3D. The gate logic (paired checks, clip-level intervals, margins set in
   advance, scenario sets) carries over; the metrics would become 3D: position
   error, velocity error, time to first track.
-- **The driving-impact metric is a proxy.** Distance comes from box height and
-  an assumed focal length, "in path" ignores where the road actually goes, and
-  braking is a constant-deceleration model. It ranks models; it is not a
-  safety case.
+- **The driving-impact metric is a proxy.** Distance comes from box height
+  (with Waymo's real focal length; an assumed one for BDD), "in path" ignores
+  where the road actually goes, and braking is a constant-deceleration model.
+  It ranks models; it is not a safety case.
 - **No tracker.** Time-based metrics use the ground-truth track ids to link
   boxes, so they measure the detector's consistency, not a tracker's.
 - **Margins are mine.** In a real program they'd come from a system-level

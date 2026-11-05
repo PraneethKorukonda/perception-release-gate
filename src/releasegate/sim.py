@@ -259,6 +259,7 @@ def simulate(cfg: SimConfig = SimConfig(), seed: int = 0) -> SimData:
             "lat": lat,
             "lon": lon,
             "speed_mps": speed,
+            "location": city[fr_video],
         }
     )
 

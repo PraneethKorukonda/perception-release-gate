@@ -141,7 +141,16 @@ def map_tab(t):
     v = t.get("videos")
     obj = t["objects"]
     if v is None or "lat" not in v or v["lat"].isna().all():
-        st.info("No GPS in this dataset. Ingest with --info to get clip locations.")
+        # Waymo gives a city per segment instead of GPS points.
+        if "location" in obj and (obj["location"] != "undefined").any():
+            st.subheader("Pedestrian recall by city")
+            st.dataframe(
+                db.run(load(st.session_state["report"])[0], "recall_by_location"),
+                hide_index=True,
+                width="stretch",
+            )
+        else:
+            st.info("No GPS in this dataset. Ingest with --info to get clip locations.")
         return
     ped = obj[obj["cls"] == "pedestrian"]
     r = ped.groupby(["video", "model"])["det"].mean().unstack()
@@ -233,6 +242,7 @@ def main():
     if not (Path(report) / "checks.parquet").exists():
         st.error(f"No gate report in {report}. Run `releasegate demo` or `releasegate gate` first.")
         return
+    st.session_state["report"] = report
     con, t = load(report)
     st.title("Perception release gate")
     tabs = st.tabs(["Decision", "Scenarios", "Over time", "Map", "Clip review"])

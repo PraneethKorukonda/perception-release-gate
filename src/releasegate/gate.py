@@ -88,8 +88,11 @@ class GateConfig:
 
 
 def load_config(path: str | Path | None = None) -> GateConfig:
-    if path is None:
-        text = resources.files("releasegate").joinpath("configs/default_gate.toml").read_text()
+    """A file path, or the name of a packaged config ("default", "waymo")."""
+    name = "default" if path is None else str(path)
+    packaged = resources.files("releasegate").joinpath(f"configs/{name}_gate.toml")
+    if packaged.is_file():
+        text = packaged.read_text()
     else:
         text = Path(path).read_text()
     raw = tomllib.loads(text)

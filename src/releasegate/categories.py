@@ -46,6 +46,20 @@ COCO_TO_EVAL = {
     "motorcycle": "motorcycle",
 }
 
+# Waymo labels every vehicle as one class, and a person on a bike as `cyclist`
+# (one box around both). So for Waymo the detector's car/truck/bus/motorcycle
+# all become `vehicle`, and its bicycle boxes are dropped: a COCO bicycle box
+# covers only the bike, so it would never line up with a Waymo cyclist box.
+# Cyclist boxes are ignore regions for pedestrians, same idea as BDD riders.
+COCO_TO_WAYMO = {
+    "person": "pedestrian",
+    "car": "vehicle",
+    "truck": "vehicle",
+    "bus": "vehicle",
+    "motorcycle": "vehicle",
+}
+CLASS_MAPS = {"bdd": COCO_TO_EVAL, "waymo": COCO_TO_WAYMO}
+
 # Rough real-world heights in metres, used to turn box height into distance.
 # Only pedestrian distance feeds a gate check; the rest are for plots.
 OBJECT_HEIGHT_M = {
@@ -55,6 +69,7 @@ OBJECT_HEIGHT_M = {
     "bus": 3.2,
     "bicycle": 1.0,
     "motorcycle": 1.1,
+    "vehicle": 1.6,
 }
 
 
@@ -68,5 +83,5 @@ def map_bdd(category: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def map_coco(name: str) -> str | None:
-    return COCO_TO_EVAL.get(name.strip().lower())
+def map_coco(name: str, scheme: str = "bdd") -> str | None:
+    return CLASS_MAPS[scheme].get(name.strip().lower())

@@ -58,7 +58,7 @@ class SafetyParams:
     path_half_width_m: float = 2.0
 
 
-def distance_m(cls, height_px, truncated, focal_px: float = 1000.0) -> np.ndarray:
+def distance_m(cls, height_px, truncated, focal_px=1000.0) -> np.ndarray:
     H = np.array([OBJECT_HEIGHT_M.get(c, np.nan) for c in cls], float)
     h = np.asarray(height_px, float)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -88,8 +88,11 @@ def add_geometry(obj: pd.DataFrame, params: SafetyParams = SafetyParams()) -> pd
     obj = obj.copy()
     h = (obj["y2"] - obj["y1"]).to_numpy(float)
     cx = ((obj["x1"] + obj["x2"]) / 2).to_numpy(float)
-    obj["distance_m"] = distance_m(obj["cls"], h, obj["truncated"], params.focal_px)
-    obj["lateral_m"] = lateral_m(cx, obj["distance_m"], params.focal_px, params.image_width)
+    # Waymo ships real intrinsics per camera; use them when the ingest provides them.
+    f = obj["focal_px"].to_numpy(float) if "focal_px" in obj else params.focal_px
+    cu = obj["center_x_px"].to_numpy(float) if "center_x_px" in obj else params.image_width / 2
+    obj["distance_m"] = distance_m(obj["cls"], h, obj["truncated"], f)
+    obj["lateral_m"] = (cx - cu) * obj["distance_m"].to_numpy(float) / f
     speed = obj["speed_mps"] if "speed_mps" in obj else np.full(len(obj), np.nan)
     obj["speed_mps"], obj["speed_source"] = fill_speed(speed, obj["scene"])
     return obj

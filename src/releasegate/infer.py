@@ -32,7 +32,7 @@ from releasegate.categories import map_coco
 PRED_COLUMNS = ["pred_id", "model", "image_id", "cls", "score", "x1", "y1", "x2", "y2"]
 
 
-def results_to_rows(result, image_id: str, names: dict) -> list[tuple]:
+def results_to_rows(result, image_id: str, names: dict, classes: str = "bdd") -> list[tuple]:
     """Turn one ultralytics Results object into rows, keeping only mapped classes."""
     boxes = result.boxes
     if boxes is None or len(boxes) == 0:
@@ -42,7 +42,7 @@ def results_to_rows(result, image_id: str, names: dict) -> list[tuple]:
     cls = np.asarray(boxes.cls.cpu() if hasattr(boxes.cls, "cpu") else boxes.cls).astype(int)
     rows = []
     for (x1, y1, x2, y2), s, c in zip(xyxy, conf, cls, strict=True):
-        mapped = map_coco(names[int(c)])
+        mapped = map_coco(names[int(c)], classes)
         if mapped is not None:
             rows.append((image_id, mapped, float(s), float(x1), float(y1), float(x2), float(y2)))
     return rows
@@ -58,6 +58,7 @@ def predict(
     device: str | None = None,
     batch: int = 16,
     log_every: int = 1000,
+    classes: str = "bdd",
 ) -> pd.DataFrame:
     """`model` is anything with an ultralytics-style predict() and .names."""
     root = Path(image_root)
@@ -70,7 +71,7 @@ def predict(
             paths, imgsz=imgsz, conf=conf, device=device, verbose=False, max_det=300
         )
         for image_id, r in zip(ids, results, strict=True):
-            rows += results_to_rows(r, image_id, model.names)
+            rows += results_to_rows(r, image_id, model.names, classes)
         done = start + len(ids)
         if log_every and (done // log_every) != ((done - len(ids)) // log_every):
             rate = done / (time.time() - t0)

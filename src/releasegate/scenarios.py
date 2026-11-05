@@ -24,6 +24,7 @@ import pandas as pd
 
 CROWDED_MIN_OBJECTS = 15
 FAR_M = 30.0
+NEAR_M = 40.0  # roughly where a stop at city-to-arterial speeds has to start
 
 
 def tag_objects(obj: pd.DataFrame, tracks: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -33,6 +34,7 @@ def tag_objects(obj: pd.DataFrame, tracks: pd.DataFrame | None = None) -> pd.Dat
     obj["highway"] = obj["scene"].eq("highway")
     obj["small"] = obj["size"].eq("small")
     obj["far"] = obj["distance_m"].gt(FAR_M)
+    obj["near"] = obj["distance_m"].le(NEAR_M)
     obj["crowded"] = obj.groupby("image_id")["gt_id"].transform("size").ge(CROWDED_MIN_OBJECTS)
     if tracks is not None:
         obj = obj.merge(tracks[["track_id", "in_path"]], on="track_id", how="left")
@@ -46,6 +48,9 @@ def tag_tracks(tracks: pd.DataFrame) -> pd.DataFrame:
     tracks["rain"] = tracks["weather"].isin(["rainy", "snowy"])
     tracks["highway"] = tracks["scene"].eq("highway")
     tracks["far_at_appearance"] = tracks["distance_at_appear_m"].gt(FAR_M)
+    # first seen already close: stepped out, came round a corner or from behind
+    # something. These are the pedestrians where a slow first detection hurts.
+    tracks["near_at_appearance"] = tracks["distance_at_appear_m"].le(NEAR_M)
     return tracks
 
 

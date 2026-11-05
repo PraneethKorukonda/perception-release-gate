@@ -1,0 +1,98 @@
+# Release gate for the Waymo Open Dataset (front camera, 10 Hz).
+#
+# Same rules as default_gate.toml. What's different:
+#   * classes are just vehicle and pedestrian (cyclists are ignore regions)
+#   * fps = 10, so "detected within 1 s" means within 10 frames
+#   * Waymo labels objects very far out (half the pedestrians are 80 m+), and
+#     a COCO detector finds few of those. Overall recall is mostly a measure of
+#     tiny boxes, so the blocking pedestrian checks are on the near field
+#     (<= 40 m), where a miss turns into a braking problem.
+#   * no weather scenes beyond sunny and rain; rain is rare in the val split, so
+#     expect the rain check to come back INCONCLUSIVE unless you pick for it.
+
+[settings]
+level = 0.90
+n_boot = 2000
+n_boot_map = 300
+seed = 0
+fps = 10
+min_clips = 15
+iou = 0.5
+
+[thresholds]
+current = 0.25
+candidate = 0.25
+
+# ---- headline numbers (reported, not blocking) ----------------------------
+
+[[check]]
+name = "Overall mAP@0.5"
+metric = "map50"
+margin = 0.005
+blocking = false
+
+[[check]]
+name = "Vehicle recall within 40 m"
+metric = "frame_recall"
+where = "cls == 'vehicle' and near"
+margin = 0.01
+blocking = false
+
+[[check]]
+name = "Pedestrian recall, all distances"
+metric = "frame_recall"
+where = "cls == 'pedestrian'"
+margin = 0.01
+blocking = false
+
+[[check]]
+name = "False positives per frame"
+metric = "fp_per_frame"
+margin = 0.10
+blocking = false
+
+# ---- pedestrians near the car: these block the release ---------------------
+
+[[check]]
+name = "Pedestrian recall within 40 m"
+metric = "frame_recall"
+where = "cls == 'pedestrian' and near"
+margin = 0.01
+
+[[check]]
+name = "Pedestrian recall within 40 m, night"
+metric = "frame_recall"
+where = "cls == 'pedestrian' and near and night"
+margin = 0.02
+
+[[check]]
+name = "Pedestrian recall within 40 m, rain"
+metric = "frame_recall"
+where = "cls == 'pedestrian' and near and rain"
+margin = 0.02
+
+# Most Waymo pedestrian tracks start 80 m+ away, where nobody needs a detection
+# within a second. These two only count pedestrians first seen within 40 m.
+[[check]]
+name = "Pedestrians first seen within 40 m, detected within 1 s"
+metric = "detected_within_1s"
+where = "cls == 'pedestrian' and near_at_appearance"
+margin = 0.02
+
+[[check]]
+name = "Pedestrians first seen within 40 m, detected within 1 s, night"
+metric = "detected_within_1s"
+where = "cls == 'pedestrian' and near_at_appearance and night"
+margin = 0.03
+
+[[check]]
+name = "Late detection of in-path pedestrians"
+metric = "late_in_path"
+where = "cls == 'pedestrian'"
+margin = 0.02
+
+[[check]]
+name = "Pedestrian dropouts per 100 detected frames"
+metric = "dropouts_per_100"
+where = "cls == 'pedestrian'"
+margin = 0.5
