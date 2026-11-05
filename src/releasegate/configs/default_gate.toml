@@ -1,0 +1,97 @@
+# Release gate for a 2D camera detector.
+#
+# Every check compares the candidate with the current model on the same clips.
+# `margin` is how much worse the candidate may be before it counts as a
+# regression, in the metric's own units (0.01 = one percentage point).
+# Set the margins before you look at results, not after.
+#
+# `where` is a pandas query over the box table (frame_recall) or the object
+# table (the time-based metrics). Useful columns: cls, timeofday, weather,
+# scene, size, occluded, night, rain, highway, small, far, crowded, in_path,
+# and set_<name> for any scenario set passed with --set.
+
+[settings]
+level = 0.90        # two-sided, so each end is a one-sided 95% bound
+n_boot = 2000
+n_boot_map = 300    # mAP is slower to resample
+seed = 0
+fps = 5
+min_clips = 15      # fewer clips than this -> INCONCLUSIVE, whatever the numbers say
+iou = 0.5
+
+[thresholds]        # score threshold each model is deployed at
+current = 0.25
+candidate = 0.25
+
+# ---- headline numbers (reported, not blocking) ----------------------------
+
+[[check]]
+name = "Overall mAP@0.5"
+metric = "map50"
+margin = 0.005
+blocking = false
+
+[[check]]
+name = "Vehicle recall"
+metric = "frame_recall"
+where = "cls in ['car', 'truck', 'bus']"
+margin = 0.01
+blocking = false
+
+[[check]]
+name = "False positives per frame"
+metric = "fp_per_frame"
+margin = 0.10
+blocking = false
+
+# ---- pedestrians: these block the release ---------------------------------
+
+[[check]]
+name = "Pedestrian recall"
+metric = "frame_recall"
+where = "cls == 'pedestrian'"
+margin = 0.01
+
+[[check]]
+name = "Pedestrian recall, night"
+metric = "frame_recall"
+where = "cls == 'pedestrian' and night"
+margin = 0.02
+
+[[check]]
+name = "Pedestrian recall, far (>30 m) at night"
+metric = "frame_recall"
+where = "cls == 'pedestrian' and night and far"
+margin = 0.03
+
+[[check]]
+name = "Pedestrian recall, rain"
+metric = "frame_recall"
+where = "cls == 'pedestrian' and rain"
+margin = 0.02
+
+[[check]]
+name = "Pedestrians detected within 1 s of appearing"
+metric = "detected_within_1s"
+where = "cls == 'pedestrian'"
+margin = 0.02
+
+[[check]]
+name = "Pedestrians detected within 1 s, night"
+metric = "detected_within_1s"
+where = "cls == 'pedestrian' and night"
+margin = 0.03
+
+[[check]]
+name = "Late detection of in-path pedestrians"
+metric = "late_in_path"
+where = "cls == 'pedestrian'"
+# Late detections are rare (about 1 in 100 in-path pedestrians), so a tighter
+# margin than 2 points can't be certified with ~200 clips. See studies.md.
+margin = 0.02
+
+[[check]]
+name = "Pedestrian dropouts per 100 detected frames"
+metric = "dropouts_per_100"
+where = "cls == 'pedestrian'"
+margin = 0.5

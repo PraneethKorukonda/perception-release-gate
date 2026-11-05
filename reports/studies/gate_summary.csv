@@ -1,0 +1,6 @@
+scenario,clips,correct decision,SHIP,HOLD,NEEDS MORE DATA
+No change,200,SHIP,0.15,0.2,0.65
+"Better overall, worse on far pedestrians at night",200,HOLD,0.0,1.0,0.0
+Plain improvement,200,SHIP,0.975,0.025,0.0
+Subtle night regression,200,HOLD,0.0,0.95,0.05
+Noisier frame to frame,200,HOLD,0.0,1.0,0.0

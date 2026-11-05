@@ -1,0 +1,6 @@
+{"startTime": 1000000, "endTime": 1040000,
+ "locations": [
+   {"timestamp": 1000000, "latitude": 40.70, "longitude": -74.00, "speed": 10.0, "course": 0},
+   {"timestamp": 1001000, "latitude": 40.71, "longitude": -74.00, "speed": 12.0, "course": 0},
+   {"timestamp": 1002000, "latitude": 40.72, "longitude": -74.00, "speed": -1, "course": 0}
+ ]}

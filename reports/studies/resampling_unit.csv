@@ -1,0 +1,3 @@
+resampling unit,nominal false alarm rate,observed false alarm rate,median interval width (pts)
+clip,0.1,0.09,1.689489
+box,0.1,0.44,0.752177

@@ -1,0 +1,46 @@
+check,true_diff,margin,truly_worse,PASS,FAIL,INCONCLUSIVE,scenario
+Vehicle recall,-0.0004818750260715543,0.01,False,0.675,0.025,0.3,No change
+Pedestrian recall,0.0023259998623982314,0.01,False,0.7,0.05,0.25,No change
+"Pedestrian recall, night",0.0042403203459248084,0.02,False,0.625,0.05,0.325,No change
+"Pedestrian recall, far (>30 m) at night",0.0064986629932743956,0.03,False,0.6,0.05,0.35,No change
+"Pedestrian recall, rain",-0.005571138159079725,0.02,False,0.525,0.05,0.425,No change
+Pedestrians detected within 1 s of appearing,0.0008876430740480945,0.02,False,0.9,0.0,0.1,No change
+"Pedestrians detected within 1 s, night",-0.00013417415805716537,0.03,False,0.625,0.075,0.3,No change
+Late detection of in-path pedestrians,-0.00043516100957354323,0.02,False,0.7,0.025,0.275,No change
+Pedestrian dropouts per 100 detected frames,-0.04722299080497905,0.5,False,0.875,0.0,0.125,No change
+Vehicle recall,0.05542210094634503,0.01,False,1.0,0.0,0.0,"Better overall, worse on far pedestrians at night"
+Pedestrian recall,0.001301924837656343,0.01,False,0.45,0.025,0.525,"Better overall, worse on far pedestrians at night"
+"Pedestrian recall, night",-0.06136664687342985,0.02,True,0.0,1.0,0.0,"Better overall, worse on far pedestrians at night"
+"Pedestrian recall, far (>30 m) at night",-0.15279150798152502,0.03,True,0.0,1.0,0.0,"Better overall, worse on far pedestrians at night"
+"Pedestrian recall, rain",0.0021486837703610373,0.02,False,0.625,0.05,0.325,"Better overall, worse on far pedestrians at night"
+Pedestrians detected within 1 s of appearing,-0.011399205793038991,0.02,False,0.225,0.125,0.65,"Better overall, worse on far pedestrians at night"
+"Pedestrians detected within 1 s, night",-0.09392191064001076,0.03,True,0.0,1.0,0.0,"Better overall, worse on far pedestrians at night"
+Late detection of in-path pedestrians,-0.008268059181897302,0.02,False,0.875,0.0,0.125,"Better overall, worse on far pedestrians at night"
+Pedestrian dropouts per 100 detected frames,-0.25559660010540863,0.5,False,0.975,0.0,0.025,"Better overall, worse on far pedestrians at night"
+Vehicle recall,0.04999489356315656,0.01,False,1.0,0.0,0.0,Plain improvement
+Pedestrian recall,0.05989118872088539,0.01,False,1.0,0.0,0.0,Plain improvement
+"Pedestrian recall, night",0.07453676213097027,0.02,False,1.0,0.0,0.0,Plain improvement
+"Pedestrian recall, far (>30 m) at night",0.11572806093509436,0.03,False,1.0,0.0,0.0,Plain improvement
+"Pedestrian recall, rain",0.06258202310800032,0.02,False,1.0,0.0,0.0,Plain improvement
+Pedestrians detected within 1 s of appearing,0.036813828544732585,0.02,False,1.0,0.0,0.0,Plain improvement
+"Pedestrians detected within 1 s, night",0.05058365758754857,0.03,False,1.0,0.0,0.0,Plain improvement
+Late detection of in-path pedestrians,-0.008703220191470845,0.02,False,0.975,0.025,0.0,Plain improvement
+Pedestrian dropouts per 100 detected frames,-1.1369848415915405,0.5,False,1.0,0.0,0.0,Plain improvement
+Vehicle recall,0.034021096057111566,0.01,False,1.0,0.0,0.0,Subtle night regression
+Pedestrian recall,0.011505628443353122,0.01,False,0.975,0.0,0.025,Subtle night regression
+"Pedestrian recall, night",-0.015202728421565559,0.02,False,0.125,0.35,0.525,Subtle night regression
+"Pedestrian recall, far (>30 m) at night",-0.05544121221943121,0.03,True,0.0,0.925,0.075,Subtle night regression
+"Pedestrian recall, rain",0.00808008028614815,0.02,False,0.825,0.0,0.175,Subtle night regression
+Pedestrians detected within 1 s of appearing,-0.005185704274702219,0.02,False,0.7,0.0,0.3,Subtle night regression
+"Pedestrians detected within 1 s, night",-0.04280155642023353,0.03,True,0.025,0.875,0.1,Subtle night regression
+Late detection of in-path pedestrians,-0.00391644908616188,0.02,False,0.825,0.05,0.125,Subtle night regression
+Pedestrian dropouts per 100 detected frames,-0.5842730572266888,0.5,False,1.0,0.0,0.0,Subtle night regression
+Vehicle recall,-0.046764892455563256,0.01,True,0.0,1.0,0.0,Noisier frame to frame
+Pedestrian recall,-0.05372821525157312,0.01,True,0.0,1.0,0.0,Noisier frame to frame
+"Pedestrian recall, night",-0.047633185645335696,0.02,True,0.0,0.975,0.025,Noisier frame to frame
+"Pedestrian recall, far (>30 m) at night",-0.025492261567134022,0.03,False,0.1,0.6,0.3,Noisier frame to frame
+"Pedestrian recall, rain",-0.05924963330845834,0.02,True,0.0,0.925,0.075,Noisier frame to frame
+Pedestrians detected within 1 s of appearing,0.015136650315346833,0.02,False,1.0,0.0,0.0,Noisier frame to frame
+"Pedestrians detected within 1 s, night",0.0265664832953173,0.03,False,0.975,0.0,0.025,Noisier frame to frame
+Late detection of in-path pedestrians,0.011314186248912096,0.02,False,0.3,0.25,0.45,Noisier frame to frame
+Pedestrian dropouts per 100 detected frames,3.251964945646142,0.5,True,0.0,1.0,0.0,Noisier frame to frame

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "releasegate"
+version = "0.1.0"
+description = "Decide whether a new perception model is safe to ship, using driving video"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Praneeth Korukonda" }]
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pyarrow>=14",
+    "scipy>=1.10",
+    "duckdb>=0.10",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+# Both of these pull in torch. You only need them on the machine that runs the models.
+infer = ["ultralytics>=8.3"]
+mining = ["transformers>=4.40", "torch>=2.2", "pillow>=10"]
+spark = ["pyspark>=3.5"]
+dashboard = ["streamlit>=1.30"]
+dev = ["pytest>=7", "pycocotools>=2.0.7", "ruff>=0.4"]
+
+[project.scripts]
+releasegate = "releasegate.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+releasegate = ["sql/*.sql", "configs/*.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: takes more than a few seconds",
+    "spark: needs pyspark and a JVM",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# frozen dataclasses, safe as defaults
+extend-immutable-calls = ["releasegate.safety.SafetyParams", "releasegate.sim.SimConfig"]
