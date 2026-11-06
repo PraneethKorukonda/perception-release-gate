@@ -20,16 +20,17 @@ BUCKET=gs://waymo_open_dataset_v_2_0_1/validation
 
 mkdir -p "$DEST/stats"
 echo "1/2  stats for every validation segment"
-gsutil -m -q cp "$BUCKET/stats/*.parquet" "$DEST/stats/"
+gcloud storage cp --no-clobber "$BUCKET/stats/*.parquet" "$DEST/stats/"
 
 releasegate waymo-pick --stats "$DEST/stats" --n "$N" --out "$DEST/segments.csv"
 
 echo "2/2  components for the picked segments"
+# Uses `gcloud storage`, not `gsutil -m cp -I`: on macOS the gsutil version read
+# only part of the list (Python multiprocessing trouble) and still exited cleanly.
 for C in camera_box camera_calibration vehicle_pose camera_image; do
   mkdir -p "$DEST/$C"
-  tail -n +2 "$DEST/segments.csv" | cut -d, -f1 \
-    | sed "s|^|$BUCKET/$C/|; s|$|.parquet|" \
-    | gsutil -m -q cp -n -I "$DEST/$C/"
-  echo "  $C done"
+  tail -n +2 "$DEST/segments.csv" | cut -d, -f1 | sed "s|^|$BUCKET/$C/|; s|$|.parquet|" \
+    | gcloud storage cp --no-clobber --read-paths-from-stdin "$DEST/$C/"
+  echo "  $C: $(ls "$DEST/$C" | wc -l | tr -d ' ') files"
 done
 echo "done -> $DEST"

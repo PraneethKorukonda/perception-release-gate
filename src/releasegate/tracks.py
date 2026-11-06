@@ -33,6 +33,13 @@ dropouts
     times the model had an object, lost it on the next labelled frame, and
     picked it up again later. Reported per 100 detected frames. A dropout
     is what makes a downstream tracker coast or spawn a duplicate track.
+
+late in-path detection
+    for pedestrians whose path comes within 2 m of the car's: first detected
+    closer than the car needs to stop (safety.py), or never detected even
+    though the car came within that distance of them. Pedestrians who were
+    already too close when they first appeared are left out (no detector
+    could have done better), and so are ones the car never approached.
 """
 
 from __future__ import annotations
@@ -127,7 +134,14 @@ def track_table(
     t["distance_at_appear_m"] = g["distance_m"].first()
     t["in_path"] = t["min_lateral_m"] < params.path_half_width_m
     t["stop_margin_m"] = t["distance_at_det_m"] - stopping_distance(t["speed_at_det_mps"], params)
-    late = t["first_det_frame"].isna() | (t["stop_margin_m"] < 0)
+    # Did the car ever get within stopping distance of this object? A miss only
+    # matters if it did. (The first version counted every never-detected
+    # in-path pedestrian as late, including ones 150 m away that the car never
+    # approached; on Waymo that was all of the "late" cases.)
+    in_range = o["distance_m"].to_numpy() <= stopping_distance(o["speed_mps"], params)
+    t["reached_stop_range"] = pd.Series(in_range, index=o.index).groupby(tid).any().reindex(t.index)
+    never = t["first_det_frame"].isna()
+    late = (never & t["reached_stop_range"]) | (t["stop_margin_m"] < 0)
     # A margin can only be judged if we know how far away the object was.
     speed_at_appear = g["speed_mps"].first()
     avoidable = t["distance_at_appear_m"] > stopping_distance(speed_at_appear, params)

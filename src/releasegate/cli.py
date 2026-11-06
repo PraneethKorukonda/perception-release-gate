@@ -3,11 +3,11 @@
 Typical run on the Waymo Open Dataset (see scripts/waymo_download.sh for getting the files):
 
     releasegate waymo-ingest --root waymo/validation --out data/waymo --images data/waymo/images
-    releasegate infer  --data data/waymo --images data/waymo/images --classes waymo --weights yolo11s.pt --out runs/yolo11s
-    releasegate infer  --data data/waymo --images data/waymo/images --classes waymo --weights yolo11m.pt --out runs/yolo11m
+    releasegate infer  --data data/waymo --images data/waymo/images --classes waymo --weights yolo11n.pt --out runs/yolo11n --imgsz 960 --conf 0.05
+    releasegate infer  --data data/waymo --images data/waymo/images --classes waymo --weights yolo11s.pt --out runs/yolo11s --imgsz 960 --conf 0.05
+    releasegate match  --data data/waymo --run runs/yolo11n
     releasegate match  --data data/waymo --run runs/yolo11s
-    releasegate match  --data data/waymo --run runs/yolo11m
-    releasegate gate   --data data/waymo --config waymo --current runs/yolo11s --candidate runs/yolo11m --out reports/waymo
+    releasegate gate   --data data/waymo --config waymo --current runs/yolo11n --candidate runs/yolo11s --out reports/waymo
     releasegate sql    --report reports/waymo late_pedestrians
 
 BDD100K tracking data works the same way with `releasegate ingest` instead.

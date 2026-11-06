@@ -28,6 +28,7 @@ class FakeYolo:
     names = {0: "person", 2: "car", 9: "traffic light", 11: "stop sign"}
 
     def predict(self, paths, **kw):
+        self.classes_seen = kw.get("classes")
         return [
             FakeResult(
                 FakeBoxes(
@@ -43,6 +44,12 @@ def test_inference_adapter_maps_coco_classes():
     assert list(out.columns) == infer.PRED_COLUMNS
     assert set(out["cls"]) == {"pedestrian", "car"}  # traffic light dropped
     assert out["pred_id"].is_unique and len(out) == 4
+
+
+def test_inference_only_asks_for_scored_classes():
+    m = FakeYolo()
+    infer.predict(m, ["v/1.jpg"], "/nowhere", "fake", log_every=0)
+    assert sorted(m.classes_seen) == [0, 2]  # person, car; traffic light and stop sign left out
 
 
 def test_matcher_recovers_simulated_detections(small_sim):

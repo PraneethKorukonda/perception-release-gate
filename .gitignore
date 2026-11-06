@@ -1,0 +1,18 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.DS_Store
+
+# data and generated outputs (regenerate with the commands in the README)
+data/
+runs/
+demo/
+datasets/*.hits.csv
+*.npz
+*.pt
+spark-warehouse/
+reports/*/
+!reports/studies/
+waymo/

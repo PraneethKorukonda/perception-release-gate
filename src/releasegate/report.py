@@ -102,12 +102,29 @@ def headline(result: GateResult, names: dict) -> str:
             "These checks block the release, so the overall gains don't make up for them."
         )
     if len(unsure):
-        bits = [_lower(r.check) for r in unsure.itertuples()]
-        parts.append(
-            f"The eval set is too small to tell on {_sentence_list(bits)}: "
-            "the interval is wider than the allowed margin. Adding clips of that kind "
-            "is the fix, not lowering the bar."
-        )
+        # Say why each one is undecided; the fix is different for each reason.
+        min_clips = result.config.min_clips
+        no_data = unsure[unsure["n_clips"] == 0]
+        few = unsure[(unsure["n_clips"] > 0) & (unsure["n_clips"] < min_clips)]
+        wide = unsure[unsure["n_clips"] >= min_clips]
+        if len(no_data):
+            bits = [_lower(r.check) for r in no_data.itertuples()]
+            parts.append(
+                f"The eval set has no examples at all for {_sentence_list(bits)}, "
+                "so that scenario is untested."
+            )
+        if len(few):
+            bits = [f"{_lower(r.check)} ({r.n_clips} clips)" for r in few.itertuples()]
+            parts.append(
+                f"Too few clips to trust the interval on {_sentence_list(bits)}; "
+                f"the gate needs at least {min_clips}, whatever the estimate says."
+            )
+        if len(wide):
+            bits = [_lower(r.check) for r in wide.itertuples()]
+            parts.append(
+                f"On {_sentence_list(bits)} the interval is wider than the allowed margin."
+            )
+        parts.append("Adding clips of those kinds is the fix, not lowering the bar.")
     if result.decision == "SHIP" and not len(fails) and not len(unsure):
         parts.append("No blocking check shows a regression beyond its margin.")
     return " ".join(parts)

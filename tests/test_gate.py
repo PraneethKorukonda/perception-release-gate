@@ -78,3 +78,16 @@ def test_bad_filter_is_reported_clearly(small_sim):
     )
     with pytest.raises(ValueError, match="can't apply filter"):
         run_gate(d.images, d.gt, runs["current"], runs["candidate"], cfg)
+
+
+def test_summary_gives_the_reason_for_each_inconclusive(small_sim):
+    from releasegate.report import headline
+
+    d, runs = small_sim
+    cfg = replace(load_config(), n_boot=100, n_boot_map=20, min_clips=5)
+    r = run_gate(d.images, d.gt, runs["current"], runs["candidate_good"], cfg)
+    r.checks.loc[r.checks["blocking"], "verdict"] = "INCONCLUSIVE"
+    r.checks.loc[r.checks.index[3], "n_clips"] = 0
+    r.checks.loc[r.checks.index[4], "n_clips"] = 2
+    text = headline(r, {"current": "a", "candidate": "b"})
+    assert "no examples at all" in text and "(2 clips)" in text

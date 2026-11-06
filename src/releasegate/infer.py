@@ -57,18 +57,22 @@ def predict(
     conf: float = 0.01,
     device: str | None = None,
     batch: int = 16,
-    log_every: int = 1000,
+    log_every: int = 200,
     classes: str = "bdd",
 ) -> pd.DataFrame:
     """`model` is anything with an ultralytics-style predict() and .names."""
     root = Path(image_root)
+    # Only keep the COCO classes we score. Filtering before NMS matters: at conf
+    # 0.01 the other 74 classes add thousands of candidates per image and NMS
+    # hits its time limit, which silently drops detections.
+    keep = [i for i, n in model.names.items() if map_coco(n, classes)]
     rows: list[tuple] = []
     t0 = time.time()
     for start in range(0, len(image_ids), batch):
         ids = image_ids[start : start + batch]
         paths = [str(root / i) for i in ids]
         results = model.predict(
-            paths, imgsz=imgsz, conf=conf, device=device, verbose=False, max_det=300
+            paths, imgsz=imgsz, conf=conf, device=device, verbose=False, max_det=300, classes=keep
         )
         for image_id, r in zip(ids, results, strict=True):
             rows += results_to_rows(r, image_id, model.names, classes)

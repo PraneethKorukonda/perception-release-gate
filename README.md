@@ -43,6 +43,51 @@ The metrics go past "how many boxes did it find":
 | False positives per frame | At the deployment threshold | Phantom braking |
 | mAP@0.5 | COCO-style, matches pycocotools exactly | The number everyone asks for first |
 
+## Results on the Waymo Open Dataset
+
+YOLO11n as the deployed model, YOLO11s as the candidate. Both COCO-pretrained,
+run at 960 px on a MacBook Air M2, on 40 Waymo validation segments: 7,883
+front-camera frames, 135k labelled boxes, 25.7k of them pedestrians. The
+segments were picked for low light (15 night, 19 dawn/dusk, 6 day), so the
+overall numbers are not a typical driving mix. Each check is computed inside
+its own condition, so the night and distance checks aren't affected by that.
+
+**Decision: NEEDS MORE DATA.**
+
+| Check | YOLO11n | YOLO11s | Change (90% CI) | Verdict |
+|---|---:|---:|---|---|
+| Overall mAP@0.5 | 35.7% | 43.2% | +7.5 pts (+6.6 to +8.7) | PASS (info) |
+| Pedestrian recall within 40 m | 60.8% | 70.6% | +9.8 pts (+6.1 to +12.4) | PASS |
+| Pedestrian recall within 40 m, night | 41.7% | 53.4% | +11.6 pts (+7.0 to +14.8) | INCONCLUSIVE, 12 clips |
+| Pedestrian recall within 40 m, rain | – | – | no data | INCONCLUSIVE |
+| First seen within 40 m, detected within 1 s | 85% | 90% | +5 pts (0 to +16) | INCONCLUSIVE, 7 clips |
+| Late detection of in-path pedestrians | 0% | 0% | 0 | PASS |
+| Pedestrian dropouts per 100 detected frames | 10.2 | 8.9 | -1.3 (-2.5 to -0.4) | PASS |
+
+What it says:
+
+- **The bigger model is better on everything there's enough data to judge**:
+  about 10 points more pedestrians found within 40 m, and fewer dropouts.
+- **Night is the weak spot for both.** Within 40 m, YOLO11n finds 42% of
+  pedestrians at night against 65% at dawn/dusk and 74% in daylight. Night
+  pedestrians in this set are actually *closer* than the rest (median 53 m vs
+  77 m), so the gap isn't a distance-mix effect. If anything that hides some
+  of the lighting effect.
+- **Why it isn't SHIP.** The night check has a clearly positive interval but
+  only 12 segments with nearby night pedestrians, under the 15-clip minimum,
+  and that's already every such segment in the validation split. There are no
+  rain segments with pedestrians in the validation split at all. The fix is
+  more night (and any rain) segments from Waymo's training split, which are
+  fair evaluation data for a COCO-pretrained detector, not a lower bar.
+- **Late in-path detection is 0% for both.** 13 in-path pedestrians were
+  never detected by either model, but the car never came within stopping
+  distance of any of them. My first version of this metric counted them
+  anyway and reported 25%; the real data is what caught that.
+
+![Waymo gate checks](docs/waymo_gate_checks.png)
+
+![Recall by distance, day vs night](docs/waymo_recall_by_distance.png)
+
 ## Example
 
 `releasegate demo` runs the whole pipeline on 200 simulated clips (about the
@@ -177,7 +222,7 @@ pip install -e ".[infer,dashboard]"
 brew install --cask google-cloud-sdk && gcloud auth login    # same Google account
 
 ./scripts/waymo_download.sh    # picks 40 validation segments, ~14 GB
-./scripts/run_waymo.sh         # yolo11s vs yolo11m by default
+./scripts/run_waymo.sh         # yolo11n vs yolo11s by default
 streamlit run app/dashboard.py -- --report reports/waymo --images data/waymo/images
 ```
 
@@ -189,8 +234,10 @@ back INCONCLUSIVE when the set is small, so it spends the download where the
 gate needs it. That doesn't bias any check, because each check is computed
 inside its own condition.
 
-On an M1/M2 Mac with `--device mps`, inference at 1280 px takes roughly 5-10
-minutes per model for 40 segments (~8,000 frames). Two settings matter: keep
+On a MacBook Air M2 with `--device mps` at 960 px, YOLO11n ran at ~31
+frames/s and YOLO11s at ~19, so 40 segments (~7,900 frames) take about 4 and 7
+minutes. At 1280 px YOLO11s ran out of memory on the 8 GB Air and slowed to a
+crawl, which is why the script defaults to 960. Two settings matter: keep
 `--conf` low (0.01) because the gate applies its own threshold and AP needs
 the low-score tail, and use the same `--imgsz` for both models or you're
 comparing input sizes, not models.
@@ -288,7 +335,7 @@ src/releasegate/
   db.py, sql/, spark_job.py     DuckDB views and queries, PySpark version
   sim.py, studies.py            simulated clips with known truth, gate error rates
 app/dashboard.py                Streamlit: decision, scenarios, time, map, clip review
-tests/                          53 tests, including pycocotools parity and Spark vs DuckDB
+tests/                          57 tests, including pycocotools parity and Spark vs DuckDB
 ```
 
 ```bash
@@ -321,3 +368,5 @@ make demo && make dashboard
   already clear instead of waiting for the full eval set.
 - Per-scenario power analysis: how many more night clips are needed to turn
   an INCONCLUSIVE into a verdict.
+- Pull night and rain segments from Waymo's training split so those checks can
+  actually be decided (see the results above).

@@ -240,6 +240,8 @@ def summarize_stats(stats_dir) -> pd.DataFrame:
             s[f"{STATS}.camera_object_counts.counts"],
             strict=True,
         ):
+            if types is None or counts is None:  # frame with nothing labelled
+                continue
             d = dict(zip(types, counts, strict=True))
             ped += d.get(TYPE_PEDESTRIAN, 0)
         rows.append(

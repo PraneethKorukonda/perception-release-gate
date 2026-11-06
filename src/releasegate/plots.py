@@ -100,6 +100,8 @@ def time_to_detection(tracks: dict, path: Path, cls: str = "pedestrian") -> None
         for role, color in (("current", CURRENT), ("candidate", CANDIDATE)):
             t = tracks[role]
             t = t[(t["cls"] == cls) & t["detected_within_1s"].notna() & (t["night"] == cond)]
+            if t.empty:  # e.g. no night pedestrians in a small eval set
+                continue
             ttfd = t["ttfd_s"].fillna(np.inf).to_numpy()
             share = [(ttfd <= g).mean() for g in t_grid]
             ax.plot(t_grid, share, color=color, linewidth=2, label=role)

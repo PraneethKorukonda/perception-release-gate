@@ -110,6 +110,14 @@ def test_late_detection_uses_distance_at_first_detection():
     assert np.isnan(t.loc["sidewalk", "late_in_path"])
 
 
+def test_missed_pedestrian_the_car_never_approached_is_not_late():
+    # stays ~42 m away the whole time (40 px), well beyond the ~21.7 m stopping distance
+    obj = make_obj({"far": (range(5, 20), [0] * 15, 40, 650)}, last_frame=25)
+    t = track_table(obj).set_index("track_id")
+    assert not t.loc["far", "reached_stop_range"]
+    assert t.loc["far", "late_in_path"] == 0.0
+
+
 def test_pedestrian_already_too_close_is_not_judged():
     obj = make_obj({"close": (range(5, 15), [1] * 10, 120, 640)})  # ~14 m when first seen
     t = track_table(obj).set_index("track_id")

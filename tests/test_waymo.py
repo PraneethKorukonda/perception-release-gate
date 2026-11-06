@@ -49,8 +49,9 @@ def root(tmp_path):
                 "[StatsComponent].time_of_day": ["Night"] * n,
                 "[StatsComponent].location": ["location_sf"] * n,
                 "[StatsComponent].weather": ["rain"] * n,
-                "[StatsComponent].camera_object_counts.types": [[1, 2]] * n,
-                "[StatsComponent].camera_object_counts.counts": [[3, 2]] * n,
+                # real files leave these null on frames with nothing labelled
+                "[StatsComponent].camera_object_counts.types": [None] + [[1, 2]] * (n - 1),
+                "[StatsComponent].camera_object_counts.counts": [None] + [[3, 2]] * (n - 1),
             }
         ),
     )
@@ -177,6 +178,12 @@ def test_extract_front_images_only(root, tmp_path):
     files = sorted((out / SEG).glob("*.jpg"))
     assert len(files) == 20 and files[0].read_bytes().startswith(b"\xff\xd8front")
     assert waymo.extract_images(root, images, out) == 0  # rerun skips what exists
+
+
+def test_summarize_stats_handles_empty_frames(root):
+    s = waymo.summarize_stats(root / "stats")
+    assert s.loc[0, "pedestrian_boxes"] == 2 * 19
+    assert (s.loc[0, "timeofday"], s.loc[0, "location"]) == ("night", "sf")
 
 
 def test_pick_segments_keeps_rare_conditions():

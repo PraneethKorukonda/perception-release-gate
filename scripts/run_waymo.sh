@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 # Full run on a downloaded Waymo eval set (scripts/waymo_download.sh).
-# On an M1/M2 Mac, inference at 1280 px is roughly 15-25 frames/s per model,
-# so 40 segments (~8,000 front-camera frames) take about 5-10 minutes each.
+# On a MacBook Air M2 (8 GB), 1280 px with yolo11s ran out of memory and slowed
+# to a crawl, so the defaults are 960 px and conf 0.05. yolo11n ran at ~12
+# frames/s at 1280. Use the same IMGSZ and CONF for both models, or you're
+# comparing input settings, not models.
 set -euo pipefail
 
 ROOT=${ROOT:-waymo/validation}
 DEVICE=${DEVICE:-mps}
-CURRENT=${CURRENT:-yolo11s.pt}
-CANDIDATE=${CANDIDATE:-yolo11m.pt}
+CANDIDATE=${CANDIDATE:-yolo11s.pt}
+CURRENT=${CURRENT:-yolo11n.pt}
+IMGSZ=${IMGSZ:-960}
+CONF=${CONF:-0.05}
 
 releasegate waymo-ingest --root "$ROOT" --out data/waymo --images data/waymo/images
 
 for W in "$CURRENT" "$CANDIDATE"; do
   NAME=$(basename "$W" .pt)
   releasegate infer --data data/waymo --images data/waymo/images --classes waymo \
-                    --weights "$W" --out "runs/$NAME" --device "$DEVICE"
+                    --weights "$W" --out "runs/$NAME" --device "$DEVICE" \
+                    --imgsz "$IMGSZ" --conf "$CONF"
   releasegate match --data data/waymo --run "runs/$NAME"
 done
 
